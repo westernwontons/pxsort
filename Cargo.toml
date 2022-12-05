@@ -1,0 +1,9 @@
+[package]
+name = "xerne"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+clap = { version = "4.0.29", features = ["derive"] }
+image = { version = "0.24.5", features = ["avif", "avif-decoder", "avif-encoder", "benchmarks", "dav1d", "dcv-color-primitives", "libwebp", "ravif", "rgb", "webp-encoder"] }
