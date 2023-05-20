@@ -1,0 +1,36 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'xerne'",
+			"cargo": {
+				"args": ["build", "--bin=xerne", "--package=xerne"],
+				"filter": {
+					"name": "xerne",
+					"kind": "bin"
+				}
+			},
+			"args": ["-f", "images/leaves.jpg", "-o", "output/leaves-edited.jpg"],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'xerne'",
+			"cargo": {
+				"args": ["test", "--no-run", "--bin=xerne", "--package=xerne"],
+				"filter": {
+					"name": "xerne",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}
