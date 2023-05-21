@@ -15,4 +15,7 @@ clean:
 	cargo clean
 
 test:
-	cargo run -- -f images/leaves.jpg -o output/leaves-edited.jpg
+	cargo run -- images/leaves.jpg output/leaves-edited.jpg
+
+test-release:
+	cargo run --release -- images/leaves.jpg output/leaves-edited.jpg
