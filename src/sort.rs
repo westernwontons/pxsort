@@ -67,37 +67,30 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
         WalkPath::Horizontal => {
             rx.iter().for_each(|(y, sorted_blocks)| {
                 let mut x = 0;
-                sorted_blocks
-                    .into_iter()
-                    .step_by(*interval.choose(&mut thread_rng()).unwrap())
-                    .for_each(|block| {
-                        let block_size = block.len() as u32;
-                        for (index, pixel) in block.into_iter().enumerate() {
-                            let inner = x + index as u32 * block_size;
-                            let pixel_x = inner.min(inner_limit - 1);
-                            let pixel_y = y;
-                            image.put_pixel(pixel_x, pixel_y, pixel);
-                        }
-                        x += block_size;
-                    });
+                let mut sorted_row = Vec::with_capacity((width * height) as usize);
+                sorted_blocks.into_iter().for_each(|block| {
+                    sorted_row.extend(block);
+                });
+                for pixel in sorted_row.into_iter() {
+                    let pixel_x = x.min(inner_limit - 1);
+                    image.put_pixel(pixel_x, y, pixel);
+                    x += 1;
+                }
             });
         }
         WalkPath::Vertical => {
             rx.iter().for_each(|(y, sorted_blocks)| {
                 let mut x = 0;
-                sorted_blocks
-                    .into_iter()
-                    .step_by(*interval.choose(&mut thread_rng()).unwrap())
-                    .for_each(|block| {
-                        let block_size = block.len() as u32;
-                        for (index, pixel) in block.into_iter().enumerate() {
-                            let inner = x + index as u32 * block_size;
-                            let pixel_x = y;
-                            let pixel_y = inner.min(inner_limit - 1);
-                            image.put_pixel(pixel_x, pixel_y, pixel);
-                        }
-                        x += block_size;
-                    });
+                let mut sorted_row = Vec::with_capacity((width * height) as usize);
+                sorted_blocks.into_iter().for_each(|block| {
+                    sorted_row.extend(block);
+                });
+                for pixel in sorted_row.into_iter() {
+                    let pixel_x = y;
+                    let pixel_y = x.min(inner_limit - 1);
+                    image.put_pixel(pixel_x, pixel_y, pixel);
+                    x += 1;
+                }
             });
         }
     }
