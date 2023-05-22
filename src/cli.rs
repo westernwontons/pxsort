@@ -242,7 +242,7 @@ pub struct Cli {
     #[arg(short = 'f', long = "coefficients", value_parser(coefficients_value_parser))]
     pub coefficients: Option<Coefficients>,
 
-    #[arg(short = 'd', long = "discretize", default_value_t = 1)]
+    #[arg(short = 'd', long = "discretize", default_value_t = 2)]
     pub discretize: u64,
 
     /// The direction to sort pixels by

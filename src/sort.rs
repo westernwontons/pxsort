@@ -8,6 +8,9 @@ use crate::{SortingAlgorithm, WalkPath, ColorChannel, AnimateParams, Cli, Coeffi
 /// Sort the pixels of an `RGB8` image
 ///
 /// Configurable with [`SortOptions`]
+/// Sort the pixels of an `RGB8` image
+///
+/// Configurable with [`SortOptions`]
 fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
     let sorter = options.by.into_rgb_sorter();
 
@@ -28,44 +31,75 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
         .for_each_with(tx, |tx, outer| {
             let mut pixels = (0..inner_limit)
                 .step_by(*interval.choose(&mut thread_rng()).unwrap())
-                .map(|inner| match options.direction {
-                    WalkPath::Horizontal => *image.get_pixel(inner, outer),
-                    WalkPath::Vertical => *image.get_pixel(outer, inner)
+                .map(|inner| {
+                    (inner..inner + block_size as u32)
+                        .into_par_iter()
+                        .map(|i| match options.direction {
+                            WalkPath::Horizontal => *image.get_pixel(i.min(inner_limit - 1), outer),
+                            WalkPath::Vertical => *image.get_pixel(outer, i.min(inner_limit - 1))
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>();
 
             if !options.shuffle {
                 if options.reverse {
-                    pixels.reverse();
-                    pixels.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
-                    pixels.reverse();
+                    pixels.par_iter_mut().for_each(|block| {
+                        block.reverse();
+                        block.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
+                        block.reverse();
+                    });
                 } else {
-                    pixels.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
+                    pixels.par_iter_mut().for_each(|block| {
+                        block.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
+                    });
                 }
             } else {
-                pixels.par_iter_mut().for_each(|Rgb(pixel)| {
-                    pixel.shuffle(&mut thread_rng());
-                })
+                pixels.par_iter_mut().for_each(|block| {
+                    block.shuffle(&mut thread_rng());
+                });
             }
 
             tx.send((outer, pixels)).unwrap();
         });
 
     match options.direction {
-        WalkPath::Horizontal => rx.iter().for_each(|(y, sorted_row)| {
-            sorted_row
-                .into_iter()
-                .enumerate()
-                .step_by(*interval.choose(&mut thread_rng()).unwrap())
-                .for_each(|(x, pixel)| image.put_pixel(x as u32, y, pixel))
-        }),
-        WalkPath::Vertical => rx.iter().for_each(|(y, sorted_row)| {
-            sorted_row
-                .into_iter()
-                .enumerate()
-                .step_by(*interval.choose(&mut thread_rng()).unwrap())
-                .for_each(|(x, pixel)| image.put_pixel(y, x as u32, pixel))
-        })
+        WalkPath::Horizontal => {
+            rx.iter().for_each(|(y, sorted_blocks)| {
+                let mut x = 0;
+                sorted_blocks
+                    .into_iter()
+                    .step_by(*interval.choose(&mut thread_rng()).unwrap())
+                    .for_each(|block| {
+                        let block_size = block.len() as u32;
+                        for (index, pixel) in block.into_iter().enumerate() {
+                            let inner = x + index as u32 * block_size;
+                            let pixel_x = inner.min(inner_limit - 1);
+                            let pixel_y = y;
+                            image.put_pixel(pixel_x, pixel_y, pixel);
+                        }
+                        x += block_size;
+                    });
+            });
+        }
+        WalkPath::Vertical => {
+            rx.iter().for_each(|(y, sorted_blocks)| {
+                let mut x = 0;
+                sorted_blocks
+                    .into_iter()
+                    .step_by(*interval.choose(&mut thread_rng()).unwrap())
+                    .for_each(|block| {
+                        let block_size = block.len() as u32;
+                        for (index, pixel) in block.into_iter().enumerate() {
+                            let inner = x + index as u32 * block_size;
+                            let pixel_x = y;
+                            let pixel_y = inner.min(inner_limit - 1);
+                            image.put_pixel(pixel_x, pixel_y, pixel);
+                        }
+                        x += block_size;
+                    });
+            });
+        }
     }
 }
 
