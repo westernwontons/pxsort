@@ -32,8 +32,10 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
             if progressive_amount != 1 {
                 *prog_amount += 1;
             }
+
             let interval = (interval.choose(&mut thread_rng()).unwrap() + *prog_amount as usize)
                 .min(*interval.last().unwrap());
+
             let mut pixels = (0..inner_limit)
                 .step_by(interval)
                 .map(|inner| {
@@ -56,7 +58,7 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
             if options.reverse {
                 pixels.par_iter_mut().for_each(|block| {
                     block.reverse();
-                    block.par_sort_by_cached_key(|pixel| sorter(pixel, &options));
+                    block.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
                     block.reverse();
                 });
             } else {
