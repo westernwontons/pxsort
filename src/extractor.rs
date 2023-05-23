@@ -43,7 +43,7 @@ pub fn intensity(Rgb(pixel): &Rgb<u8>, options: &SortOptions) -> u8 {
 pub fn brightness(Rgb(pixel): &Rgb<u8>, options: &SortOptions) -> u8 {
     let pixel = update_pixel(pixel, options);
     let (&min, &max) = pixel.iter().minmax().into_option().unwrap();
-    (max.wrapping_add(min).wrapping_div(2)) as u8
+    max.wrapping_add(min).wrapping_div(2)
 }
 
 /// Calculate the luma value of an `RGB` pixel
