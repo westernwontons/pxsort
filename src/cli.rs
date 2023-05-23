@@ -242,11 +242,11 @@ pub struct Cli {
     #[arg(short = 'f', long = "coefficients", value_parser(coefficients_value_parser))]
     pub coefficients: Option<Coefficients>,
 
-    #[arg(short = 'd', long = "discretize", default_value_t = 2)]
+    #[arg(short = 'd', long = "discretize", default_value_t = 1)]
     pub discretize: u64,
 
     /// The direction to sort pixels by
-    #[arg(long = "direction", default_value_t = WalkPath::default())]
+    #[arg(short = 't', long = "direction", default_value_t = WalkPath::default())]
     pub direction: WalkPath,
 
     #[arg(short = 's', long = "splice")]
@@ -275,6 +275,7 @@ pub struct Cli {
     /// image_mask, channel
     /// and START STOP STEP must be positive integers
     #[arg(
+        short = 'a',
         long = "animate",
         value_parser(into_animate_params),
         name = "PARAM START STOP STEP",

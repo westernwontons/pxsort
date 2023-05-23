@@ -47,7 +47,6 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
                     pixels.par_iter_mut().for_each(|block| {
                         block.reverse();
                         block.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
-                        block.reverse();
                     });
                 } else {
                     pixels.par_iter_mut().for_each(|block| {
@@ -66,30 +65,19 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
     match options.direction {
         WalkPath::Horizontal => {
             rx.iter().for_each(|(y, sorted_blocks)| {
-                let mut x = 0;
-                let mut sorted_row = Vec::with_capacity((width * height) as usize);
-                sorted_blocks.into_iter().for_each(|block| {
-                    sorted_row.extend(block);
-                });
-                for pixel in sorted_row.into_iter() {
-                    let pixel_x = x.min(inner_limit - 1);
-                    image.put_pixel(pixel_x, y, pixel);
-                    x += 1;
+                for (x, pixel) in sorted_blocks.concat().into_iter().enumerate() {
+                    let pixel_x = (x as u32).min(inner_limit - 1);
+                    let pixel_y = y;
+                    image.put_pixel(pixel_x, pixel_y, pixel);
                 }
             });
         }
         WalkPath::Vertical => {
             rx.iter().for_each(|(y, sorted_blocks)| {
-                let mut x = 0;
-                let mut sorted_row = Vec::with_capacity((width * height) as usize);
-                sorted_blocks.into_iter().for_each(|block| {
-                    sorted_row.extend(block);
-                });
-                for pixel in sorted_row.into_iter() {
+                for (x, pixel) in sorted_blocks.concat().into_iter().enumerate() {
                     let pixel_x = y;
-                    let pixel_y = x.min(inner_limit - 1);
+                    let pixel_y = (x as u32).min(inner_limit - 1);
                     image.put_pixel(pixel_x, pixel_y, pixel);
-                    x += 1;
                 }
             });
         }
@@ -121,7 +109,7 @@ impl From<Cli> for SortOptions {
             interval: value.interval,
             by: value.by,
             reverse: value.reverse,
-            coefficients: Coefficients::from(&value),
+            coefficients: (&value).into(),
             discretize: value.discretize,
             direction: value.direction,
             splice: value.splice,
@@ -142,7 +130,7 @@ impl From<&Cli> for SortOptions {
             by: value.by,
             reverse: value.reverse,
             discretize: value.discretize,
-            coefficients: Coefficients::from(value),
+            coefficients: value.into(),
             direction: value.direction,
             splice: value.splice,
             edge_threshold: value.edge_threshold,

@@ -2,7 +2,6 @@
 
 mod cli;
 mod animate;
-mod comparators;
 mod edge;
 mod img;
 pub mod extractor;
