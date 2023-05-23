@@ -1,6 +1,8 @@
 use std::{path::PathBuf, sync::mpsc::channel};
 
 use image::{Rgb, RgbImage, ImageBuffer};
+use indicatif::{ParallelProgressIterator, ProgressIterator, ProgressStyle};
+use itertools::Itertools;
 use rand::{seq::SliceRandom, thread_rng};
 use rayon::prelude::*;
 use crate::{SortingAlgorithm, WalkPath, ColorChannel, AnimateParams, Cli, Coefficients};
@@ -14,6 +16,11 @@ use crate::{SortingAlgorithm, WalkPath, ColorChannel, AnimateParams, Cli, Coeffi
 fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
     let sorter = options.by.into_rgb_sorter();
 
+    let progress_style = ProgressStyle::with_template(
+        "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}"
+    )
+    .unwrap();
+
     let (width, height) = image.dimensions();
     let (outer_limit, inner_limit) = match options.direction {
         WalkPath::Horizontal => (height, width),
@@ -26,9 +33,10 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
 
     let (tx, rx) = channel();
 
-    (0..outer_limit).into_par_iter().for_each_with(
-        (tx, progressive_amount),
-        |(tx, prog_amount), outer| {
+    (0..outer_limit)
+        .into_par_iter()
+        .progress_with_style(progress_style.clone())
+        .for_each_with((tx, progressive_amount), |(tx, prog_amount), outer| {
             if progressive_amount != 1 {
                 *prog_amount += 1;
             }
@@ -68,28 +76,43 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
             }
 
             tx.send((outer, pixels)).unwrap();
-        }
-    );
+        });
 
     match options.direction {
         WalkPath::Horizontal => {
-            rx.iter().for_each(|(y, sorted_blocks)| {
-                let sorted = sorted_blocks.concat();
-                for (x, pixel) in sorted.into_iter().enumerate() {
-                    let pixel_x = (x as u32).min(inner_limit - 1);
-                    let pixel_y = y;
-                    image.put_pixel(pixel_x, pixel_y, pixel);
-                }
+            std::thread::scope(|s| {
+                s.spawn(move || {
+                    rx.iter()
+                        .collect_vec()
+                        .into_iter()
+                        .progress_with_style(progress_style.clone())
+                        .for_each(|(y, sorted_blocks)| {
+                            let sorted = sorted_blocks.concat();
+                            for (x, pixel) in sorted.into_iter().enumerate() {
+                                let pixel_x = (x as u32).min(inner_limit - 1);
+                                let pixel_y = y;
+                                image.put_pixel(pixel_x, pixel_y, pixel);
+                            }
+                        });
+                });
             });
         }
         WalkPath::Vertical => {
-            rx.iter().for_each(|(y, sorted_blocks)| {
-                let sorted = sorted_blocks.concat();
-                for (x, pixel) in sorted.into_iter().enumerate() {
-                    let pixel_x = y;
-                    let pixel_y = (x as u32).min(inner_limit - 1);
-                    image.put_pixel(pixel_x, pixel_y, pixel);
-                }
+            std::thread::scope(|s| {
+                s.spawn(move || {
+                    rx.iter()
+                        .collect_vec()
+                        .into_iter()
+                        .progress_with_style(progress_style.clone())
+                        .for_each(|(y, sorted_blocks)| {
+                            let sorted = sorted_blocks.concat();
+                            for (x, pixel) in sorted.into_iter().enumerate() {
+                                let pixel_x = y;
+                                let pixel_y = (x as u32).min(inner_limit - 1);
+                                image.put_pixel(pixel_x, pixel_y, pixel);
+                            }
+                        });
+                });
             });
         }
     }
