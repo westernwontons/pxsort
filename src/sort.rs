@@ -22,17 +22,22 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
 
     let interval = (1..=options.interval).collect::<Vec<_>>();
 
-    let block_size = options.discretize;
+    let progressive_amount = options.progressive_amount.unwrap_or(1);
 
     let (tx, rx) = channel();
 
-    (0..outer_limit)
-        .into_par_iter()
-        .for_each_with(tx, |tx, outer| {
+    (0..outer_limit).into_par_iter().for_each_with(
+        (tx, progressive_amount),
+        |(tx, prog_amount), outer| {
+            if progressive_amount != 1 {
+                *prog_amount += 1;
+            }
+            let interval = (interval.choose(&mut thread_rng()).unwrap() + *prog_amount as usize)
+                .min(*interval.last().unwrap());
             let mut pixels = (0..inner_limit)
-                .step_by(*interval.choose(&mut thread_rng()).unwrap())
+                .step_by(interval)
                 .map(|inner| {
-                    (inner..inner + block_size as u32)
+                    (inner..inner + options.discretize as u32)
                         .into_par_iter()
                         .map(|i| match options.direction {
                             WalkPath::Horizontal => *image.get_pixel(i.min(inner_limit - 1), outer),
@@ -42,30 +47,33 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
                 })
                 .collect::<Vec<_>>();
 
-            if !options.shuffle {
-                if options.reverse {
-                    pixels.par_iter_mut().for_each(|block| {
-                        block.reverse();
-                        block.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
-                    });
-                } else {
-                    pixels.par_iter_mut().for_each(|block| {
-                        block.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
-                    });
-                }
-            } else {
+            if options.shuffle {
                 pixels.par_iter_mut().for_each(|block| {
                     block.shuffle(&mut thread_rng());
                 });
             }
 
+            if options.reverse {
+                pixels.par_iter_mut().for_each(|block| {
+                    block.reverse();
+                    block.par_sort_by_cached_key(|pixel| sorter(pixel, &options));
+                    block.reverse();
+                });
+            } else {
+                pixels.par_iter_mut().for_each(|block| {
+                    block.par_sort_unstable_by_key(|pixel| sorter(pixel, &options));
+                });
+            }
+
             tx.send((outer, pixels)).unwrap();
-        });
+        }
+    );
 
     match options.direction {
         WalkPath::Horizontal => {
             rx.iter().for_each(|(y, sorted_blocks)| {
-                for (x, pixel) in sorted_blocks.concat().into_iter().enumerate() {
+                let sorted = sorted_blocks.concat();
+                for (x, pixel) in sorted.into_iter().enumerate() {
                     let pixel_x = (x as u32).min(inner_limit - 1);
                     let pixel_y = y;
                     image.put_pixel(pixel_x, pixel_y, pixel);
@@ -74,7 +82,8 @@ fn rgb8_pixel_sort(image: &mut RgbImage, options: SortOptions) {
         }
         WalkPath::Vertical => {
             rx.iter().for_each(|(y, sorted_blocks)| {
-                for (x, pixel) in sorted_blocks.concat().into_iter().enumerate() {
+                let sorted = sorted_blocks.concat();
+                for (x, pixel) in sorted.into_iter().enumerate() {
                     let pixel_x = y;
                     let pixel_y = (x as u32).min(inner_limit - 1);
                     image.put_pixel(pixel_x, pixel_y, pixel);
