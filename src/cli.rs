@@ -77,6 +77,10 @@ pub enum SortingAlgorithm {
 }
 
 impl SortingAlgorithm {
+    /// Returns the matching RGB8 key extractor function
+    ///
+    /// This function will be used to sort rows of pixels by key,
+    /// where key is `f(pixel) => key`
     pub fn into_rgb_sorter(&self) -> impl Fn(&Rgb<u8>, &SortOptions) -> u8 + Copy {
         match self {
             SortingAlgorithm::Luma => luma,
@@ -126,7 +130,7 @@ fn into_animate_params(value: &str) -> anyhow::Result<AnimateParams> {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Coefficients {
     pub red: f32,
     pub green: f32,
@@ -163,12 +167,6 @@ impl Coefficients {
 impl Display for Coefficients {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {} {}", self.red, self.green, self.blue)
-    }
-}
-
-impl Default for Coefficients {
-    fn default() -> Self {
-        Self { red: Default::default(), green: Default::default(), blue: Default::default() }
     }
 }
 
@@ -217,6 +215,26 @@ fn no_negative_values(input: &str) -> anyhow::Result<usize> {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Parse a str into a [`WalkPath`]
+fn walkpath_value_parser(input: &str) -> anyhow::Result<WalkPath> {
+    if input.is_empty() {
+        bail!("empty input not allowed. allowed values are 'horizontal' or 'vertical'")
+    }
+
+    match input.get(..1) {
+        Some(first) => match first {
+            "h" | "H" | "horizontal" => Ok(WalkPath::Horizontal),
+            "v" | "V" | "vertical" => Ok(WalkPath::Vertical),
+            other => bail!("'{}' not an allowed value. allowed values are: 'h', 'H', 'horizontal', 'v', 'V', 'vertical'", other)
+        },
+        None => Ok(WalkPath::default())
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 #[derive(clap::Parser, Debug)]
 #[command(author, version, about, long_about, arg_required_else_help = true)]
 pub struct Cli {
@@ -249,7 +267,7 @@ pub struct Cli {
     pub progressive_amount: Option<u64>,
 
     /// The direction to sort pixels by
-    #[arg(short = 't', long = "direction", default_value_t = WalkPath::default())]
+    #[arg(short = 't', long = "direction", default_value_t = WalkPath::default(), value_parser(walkpath_value_parser))]
     pub direction: WalkPath,
 
     #[arg(short = 's', long = "splice")]
