@@ -245,6 +245,9 @@ pub struct Cli {
     #[arg(short = 'd', long = "discretize", default_value_t = 1)]
     pub discretize: u64,
 
+    #[arg(short = 'p', long = "progressive-amount")]
+    pub progressive_amount: Option<u64>,
+
     /// The direction to sort pixels by
     #[arg(short = 't', long = "direction", default_value_t = WalkPath::default())]
     pub direction: WalkPath,
