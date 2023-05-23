@@ -2,7 +2,9 @@ use image::Rgb;
 use itertools::Itertools;
 use crate::sort::SortOptions;
 
-/// Update the RGB8 pixel with the coefficients
+/// Update the RGB8 pixel with the [`Coefficient`]s
+///
+/// If any of the coefficients are zero, leaves the pixel values as they were
 ///
 /// Only used in `intensity`, `brightness`, `chroma` and `saturation`
 fn update_pixel(pixel: &[u8; 3], options: &SortOptions) -> [u8; 3] {
